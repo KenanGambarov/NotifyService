@@ -1,0 +1,64 @@
+version: '3.1'
+services:
+  notify-service:
+    image: notifyservices:1.0
+    hostname: ms.notify
+    depends_on:
+      - notify_db
+      - redis
+    ports:
+      - "8085:8085"
+#    First we need create network for feign client
+#    docker network create ms-services
+    networks:
+      - ms-services
+    volumes:
+      - ./logs/notify-service:/opt/app/logs/notify-service
+    environment:
+      DB_CONNECTION_IP: notify_db
+      DB_CONNECTION_PORT: 5432
+      DB_NAME: notify_service
+      DB_CONNECTION_USERNAME: admin
+      DB_CONNECTION_PASSWORD: 123456
+  notify_db:
+    hostname: postgresql
+    image: postgres:15
+    networks:
+      - ms-services
+    restart: always
+    volumes:
+      - notify_db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: notify_service
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5437:5437"
+  redis:
+    image: redis:latest
+    container_name: redis_comm
+    volumes:
+      - redis_data:/data
+    networks:
+      - ms-services
+    ports:
+      - "6384:6384"
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.1
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs/notify-service:/opt/app/logs/notify-service
+#    depends_on:
+#      - elasticsearch
+    networks:
+      - ms-services
+networks:
+  ms-services:
+    external: true
+    driver: bridge
+volumes:
+  notify_db_data:
+    driver: local
+  redis_data:
+    driver: local
